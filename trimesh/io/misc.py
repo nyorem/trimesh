@@ -3,8 +3,7 @@ import json
 
 from .. import util
 
-
-def load_off(file_obj, file_type=None):
+def load_off(file_obj, file_type=None, ignore_prefix=True):
     '''
     Load an OFF file into the kwargs for a Trimesh constructor
 
@@ -24,17 +23,30 @@ def load_off(file_obj, file_type=None):
         header_string = header_string.decode('utf-8')
     header_string = header_string.strip()
 
-    if not header_string == 'OFF':
-        raise NameError('Not an OFF file! Header was ' + header_string)
+    with_normals, with_colors = False, False
+    if header_string == "NOFF":
+        with_normals = True
+    if header_string == "COFF":
+        with_colors = True
+    # if not header_string == 'OFF':
+    #     raise NameError('Not an OFF file! Header was ' + header_string)
 
     header = np.array(file_obj.readline().split()).astype(int)
     blob = np.array(file_obj.read().split())
     data_ok = np.sum(header * [3, 4, 0]) == len(blob)
-    if not data_ok:
-        raise NameError('Incorrect number of vertices or faces!')
+    if not ignore_prefix:
+        if not data_ok:
+            raise NameError('Incorrect number of vertices or faces!')
 
-    vertices = blob[0:(header[0] * 3)].astype(float).reshape((-1, 3))
-    faces = blob[(header[0] * 3):].astype(int).reshape((-1, 4))[:, 1:]
+    if with_normals:
+        vertices = blob[0:(header[0] * 6)].astype(float).reshape((-1, 6))[:, 0:3]
+        faces = blob[(header[0] * 6):].astype(int).reshape((-1, 4))[:, 1:]
+    elif with_colors:
+        vertices = blob[0:(header[0] * 7)].astype(float).reshape((-1, 7))[:, 0:3]
+        faces = blob[(header[0] * 7):].astype(int).reshape((-1, 4))[:, 1:]
+    else:
+        vertices = blob[0:(header[0] * 3)].astype(float).reshape((-1, 3))
+        faces = blob[(header[0] * 3):].astype(int).reshape((-1, 4))[:, 1:]
 
     return {'vertices': vertices,
             'faces': faces}
